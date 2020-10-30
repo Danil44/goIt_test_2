@@ -4,12 +4,24 @@ const KEY = "18892945-282aea50c4191b1b0301e6513";
 const searchForm = document.getElementById("search-form");
 let page = 0;
 let query = "";
-let loadedPictures = [];
 const trigger = document.querySelector(".trigger");
+const picturesContainer = document.querySelector('ul');
 
-const observer = new IntersectionObserver(scroll);
+const observer = new IntersectionObserver(handleLoadMore);
 
 observer.observe(document.querySelector(".trigger"));
+
+const initPicturesModals = () => {
+  picturesContainer.addEventListener('click', (event) => {
+    event.preventDefault();
+
+    if(event.target.nodeName === 'IMG') {
+      basicLightbox.create(event.target.outerHTML).show();
+    }
+  })
+}
+
+const clearPicturesList = () => document.querySelector('ul').innerHTML = '';
 
 const generatePicturesList = (pictures) => {
   const container = document.querySelector(".pictures-list");
@@ -30,14 +42,22 @@ const generatePicturesList = (pictures) => {
 		`);
   });
 
-  container.innerHTML = list;
+  container.insertAdjacentHTML('beforeend', list);
+
+  initPicturesModals();
 
   setTimeout(
     () =>
-      document.querySelector("ul").insertAdjacentElement("afterend", trigger),
+      picturesContainer.insertAdjacentElement("afterend", trigger),
     500
   );
 };
+
+const handlePictures = async ({query, page}) => {
+  const pictures = await fetchPictures(query, page);
+
+  generatePicturesList(pictures);
+}
 
 const fetchPictures = async (searchQuery, nextPage = 1) => {
   const response = await fetch(
@@ -47,29 +67,27 @@ const fetchPictures = async (searchQuery, nextPage = 1) => {
   if (response.ok) {
     const { hits } = await response.json();
 
-    loadedPictures.push(...hits);
+    return hits;
   }
 };
 
 const handleSearchPictures = async (event) => {
   event.preventDefault();
+
   const searchValue = event.target.querySelector("input").value;
   query = searchValue;
-  loadedPictures = [];
   page = 1;
 
-  await fetchPictures(searchValue);
-
-  generatePicturesList(loadedPictures);
+  clearPicturesList();
+  handlePictures({query});
 };
 
 searchForm.addEventListener("submit", handleSearchPictures);
 
-function scroll(entries) {
-  entries.forEach(async (entry) => {
+function handleLoadMore(entries) {
+  entries.forEach((entry) => {
     if (entry.intersectionRatio > 0) {
-      await fetchPictures(query, (page += 1));
-      generatePicturesList(loadedPictures);
+      handlePictures({query, page: page += 1});
     }
   });
 }
